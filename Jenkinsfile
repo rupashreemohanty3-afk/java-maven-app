@@ -1,50 +1,51 @@
 pipeline {
     agent any
 
-    tools {
-        jdk 'jdk17'
-        maven 'maven3'
+    environment {
+        DOCKER_IMAGE = "java-maven-app:1.0"
+        CONTAINER_NAME = "java-app"
+        HOST_PORT = "9090"
+        CONTAINER_PORT = "8080"
     }
 
     stages {
-
-        stage('Clone Repository') {
+        stage('Checkout') {
             steps {
-                echo 'Code already cloned by Jenkins'
+                git branch: 'main',
+                    url: 'https://github.com/rupashreemohanty3-afk/java-maven-app.git'
             }
         }
 
-        stage('Build') {
+        stage('Build Maven Project') {
             steps {
-                sh 'mvn clean compile'
+                sh '''
+                    java -version
+                    mvn -version
+                    mvn clean package
+                '''
             }
         }
 
-        stage('Test') {
+        stage('Build Docker Image') {
             steps {
-                sh 'mvn test'
+                sh 'docker build -t $DOCKER_IMAGE .'
             }
         }
 
-        stage('Package') {
+        stage('Run Docker Container') {
             steps {
-                sh 'mvn package'
-            }
-        }
-
-        stage('Archive Artifact') {
-            steps {
-                archiveArtifacts artifacts: '**/target/*.war', fingerprint: true
+                sh 'docker rm -f $CONTAINER_NAME || true'
+                sh 'docker run -d -p $HOST_PORT:$CONTAINER_PORT --name $CONTAINER_NAME $DOCKER_IMAGE'
             }
         }
     }
 
     post {
         success {
-            echo 'Build completed successfully'
+            echo "✅ Pipeline successful. App running on port 9090"
         }
         failure {
-            echo 'Build failed'
+            echo "❌ Pipeline failed. Check console output."
         }
     }
 }
